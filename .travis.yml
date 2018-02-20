@@ -1,0 +1,10 @@
+sudo: false
+
+services:
+  - docker
+
+before_install:
+  - sudo service postgresql stop
+
+script:
+  - make test-all
