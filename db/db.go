@@ -54,17 +54,17 @@ func (c *Client) ensureMigrationsTable() error {
 
 // ApplyMigration executes the given statements against the database,
 // and then records that the migration has been applied.
-func (c *Client) ApplyMigration(name string, stmts []string) error {
+func (c *Client) Exec(sql string) error {
 	if err := c.ensureMigrationsTable(); err != nil {
 		return err
 	}
-	for _, s := range stmts {
-		if _, err := c.conn.Exec(s); err != nil {
-			return errors.Wrapf(err, "error running migration: %s", name)
-		}
-	}
+	_, err := c.conn.Exec(sql)
+	return err
+}
+
+func (c *Client) LogCompletedMigration(name string) error {
 	_, err := c.conn.Exec(`insert into migrations values ($1);`, name)
-	return errors.Wrap(err, "error logging migration")
+	return err
 }
 
 // GetMigrations returns all migrations that have been applied to the

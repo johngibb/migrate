@@ -22,6 +22,7 @@ var (
 
 func TestMigrateUp(t *testing.T) {
 	setup(t)
+	// Create two migrations./
 	createMigration("1_add_users_table.sql", `
 		begin;
 		create table users(id int);
@@ -29,7 +30,27 @@ func TestMigrateUp(t *testing.T) {
 		create index concurrently on users(id);
 	`)
 	createMigration("2_add_orders_table.sql", `create table orders(id int);`)
-	mustRun("migrate --src ./migrations --conn %s up", connectionString)
+
+	// Run the migrations.
+	out := mustRun("migrate --src ./migrations --conn %s up", connectionString)
+
+	// Verify the output looks correct.
+	want := regexp.MustCompile(`Running 1_add_users_table:
+> begin;
+=> OK \(.*\)
+> create table users\(id int\);
+=> OK \(.*\)
+> commit;
+=> OK \(.*\)
+> create index concurrently on users\(id\);
+=> OK \(.*\)
+Running 2_add_orders_table:
+> create table orders\(id int\);
+=> OK \(.*\)
+`)
+	if !want.MatchString(out) {
+		t.Errorf("output: want:\n%v\n\ngot:\n%s", want, out)
+	}
 }
 
 func TestMigrateCreate(t *testing.T) {

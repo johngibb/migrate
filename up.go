@@ -2,6 +2,8 @@ package migrate
 
 import (
 	"log"
+	"strings"
+	"time"
 
 	"github.com/johngibb/migrate/db"
 	"github.com/johngibb/migrate/source"
@@ -40,14 +42,34 @@ func Up(src *source.Source, db *db.Client) error {
 	}
 
 	for _, m := range pending {
-		log.Printf("Running %s\n", m.Name)
+		log.Printf("Running %s:", m.Name)
 		stmts, err := m.ReadStatements()
 		if err != nil {
-			return errors.Wrapf(err, "error reading migration: %v", m)
+			return errors.Wrap(err, "error reading migration")
 		}
-		if err := db.ApplyMigration(m.Name, stmts); err != nil {
-			return errors.Wrapf(err, "error applying migration: %v", m)
+		for _, stmt := range stmts {
+			log.Println(prefixAll("> ", stmt))
+			start := time.Now()
+			err := db.Exec(stmt)
+			elapsed := time.Since(start)
+			if err != nil {
+				log.Printf("=> FAIL (%s)", elapsed)
+				return err
+			}
+			log.Printf("=> OK (%v)", elapsed)
+		}
+		if err := db.LogCompletedMigration(m.Name); err != nil {
+			return errors.Wrap(err, "error completing migration")
 		}
 	}
 	return nil
+}
+
+// prefixAll prefixes every line in the string.
+func prefixAll(prefix, stmt string) string {
+	ss := strings.Split(strings.TrimSpace(stmt), "\n")
+	for i, s := range ss {
+		ss[i] = prefix + s
+	}
+	return strings.Join(ss, "\n")
 }
