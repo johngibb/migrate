@@ -63,7 +63,7 @@ func parseMigration(path string) (*Migration, error) {
 
 // FindMigrations finds all migrations under the source path.
 func (s *Source) FindMigrations() ([]*Migration, error) {
-	paths, err := filepath.Glob(filepath.Join(s.path, "**.sql"))
+	paths, err := filepath.Glob(filepath.Join(s.path, "*.sql"))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not glob path")
 	}
