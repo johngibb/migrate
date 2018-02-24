@@ -20,7 +20,7 @@ type Client struct {
 
 // Connect connects to the Postgres database at the given uri.
 func Connect(uri string) (*Client, error) {
-	cfg, err := pgx.ParseURI(uri)
+	cfg, err := pgx.ParseConnectionString(uri)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not parse uri: %s", uri)
 	}

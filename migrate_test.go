@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -85,9 +86,34 @@ func TestMigrateStatusAndUp(t *testing.T) {
 	}
 }
 
+func TestDSN(t *testing.T) {
+	setup(t)
+	createMigration("1_add_users_table.sql", "create table users(id int);")
+
+	// Parse the connection URI.
+	cfg, err := pgx.ParseURI(connectionString)
+	must(err, "parsing pg uri")
+
+	// Convert the URI to a DSN.
+	dsn := fmt.Sprintf(
+		"user=%s password=%s host=%s port=%d dbname=%s",
+		cfg.User,
+		cfg.Password,
+		cfg.Host,
+		cfg.Port,
+		cfg.Database,
+	)
+
+	// Confirm the tool still works correctly with a DSN.
+	out := mustRun("migrate --src ./migrations --conn '%s' status", dsn)
+	if want := "1_add_users_table pending"; !strings.Contains(out, want) {
+		t.Errorf("output missing: %q", want)
+	}
+}
+
 // run runs the command, returning the output and an error.
 func run(cmd string, args ...interface{}) (string, error) {
-	parts := strings.Split(fmt.Sprintf(cmd, args...), " ")
+	parts := splitCMD(fmt.Sprintf(cmd, args...))
 	out, err := exec.Command(parts[0], parts[1:]...).CombinedOutput()
 	return string(out), err
 }
@@ -106,6 +132,21 @@ func must(err error, msg string) {
 	if err != nil {
 		log.Fatalf(msg+": %v", err)
 	}
+}
+
+// splitCMD splits apart a command by spaces, preserving strings within
+// single quotes.
+//
+// For example: "migrate 'user=migrate password=migrate'"
+//   => ["migrate", "user=migrate password=migrate"]
+//
+func splitCMD(s string) []string {
+	r := regexp.MustCompile("'.+'|\".+\"|\\S+")
+	result := r.FindAllString(s, -1)
+	for i, s := range result {
+		result[i] = strings.Trim(s, "'") // remove surrounding single quotes
+	}
+	return result
 }
 
 // clearMigrations recreates an empty migrations folder for testing.
