@@ -132,6 +132,40 @@ func TestDSN(t *testing.T) {
 	}
 }
 
+func TestLocking(t *testing.T) {
+	setup(t)
+	createMigration("1_add_users_table.sql", "select pg_sleep(1);")
+
+	// Run the migration twice in parallel.
+	out := make([]string, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	for i := 0; i < 2; i++ {
+		go func(i int) {
+			out[i], _ = run("migrate --src ./migrations --conn %s up", connectionString)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+
+	// Look for one success and one failure.
+	var foundSuccess, foundFailure bool
+	for _, s := range out {
+		if strings.Contains(s, "=> OK") {
+			foundSuccess = true
+		}
+		if strings.Contains(s, "could not acquire lock") {
+			foundFailure = true
+		}
+	}
+	if !foundSuccess {
+		t.Error("neither command succeeded")
+	}
+	if !foundFailure {
+		t.Error("neither command failed")
+	}
+}
+
 // run runs the command, returning the output and an error.
 func run(cmd string, args ...interface{}) (string, error) {
 	parts := splitCMD(fmt.Sprintf(cmd, args...))

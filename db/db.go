@@ -14,8 +14,10 @@ type Migration struct {
 
 // Client is a migration database connection.
 type Client struct {
-	conn    *pgx.Conn
-	ensured bool
+	conn         *pgx.Conn
+	databaseName string
+	locked       bool
+	ensured      bool
 }
 
 // Connect connects to the Postgres database at the given uri.
@@ -28,7 +30,11 @@ func Connect(uri string) (*Client, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to database")
 	}
-	return &Client{conn: conn}, nil
+	c := &Client{
+		conn:         conn,
+		databaseName: cfg.Database,
+	}
+	return c, nil
 }
 
 // Close closes the underlying database connection.
