@@ -11,11 +11,29 @@ import (
 )
 
 // Up applies all pending migrations from src to the db.
-func Up(src *source.Source, db *db.Client) error {
+func Up(src *source.Source, db *db.Client) (err error) {
 	migrations, err := src.FindMigrations()
 	if err != nil {
 		return errors.Wrap(err, "error reading migration files")
 	}
+
+	// Acquire an exclusive lock.
+	locked, err := db.TryLock()
+	if err != nil {
+		return errors.Wrap(err, "error acquiring lock")
+	}
+	if !locked {
+		return errors.New("could not acquire lock")
+	}
+
+	// Release the lock after running all migrations.
+	defer func() {
+		_, e := db.Unlock()
+		if err != nil && e != nil {
+			err = e
+		}
+	}()
+
 	applied, err := db.GetMigrations()
 	if err != nil {
 		return errors.Wrap(err, "error fetching migrations")
