@@ -22,7 +22,7 @@ The simplicity is manifested in the following principles:
 ## Install
 
 ```
-$ go get -u github.com/johngibb/migrate
+$ go get -u github.com/johngibb/migrate/cmd/migrate
 ```
 
 This will install `migrate` to your $GOPATH/bin directory.
