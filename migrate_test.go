@@ -53,6 +53,42 @@ Running 2_add_orders_table:
 	}
 }
 
+func TestMigrateUpQuietNoError(t *testing.T) {
+	setup(t)
+	// Create a migration.
+	createMigration("1_add_users_table.sql", "create table users(id int);")
+
+	// Run the migration.
+	out := mustRun("migrate --src ./migrations --conn %s --quiet up", connectionString)
+
+	// Verify the output was quiet.
+	if out != "" {
+		t.Errorf("output: want blank, got:\n%s", out)
+	}
+}
+
+func TestMigrateUpQuietError(t *testing.T) {
+	setup(t)
+	// Create a broken migration.
+	createMigration("1_add_users_table.sql", `invalid sql statement;`)
+
+	// Run the migrations.
+	out, err := run("migrate --src ./migrations --conn %s --quiet up", connectionString)
+	if err == nil {
+		t.Fatal("error was nil")
+	}
+
+	// Verify the output was printed even though quiet was specified.
+	want := regexp.MustCompile(`Running 1_add_users_table:
+> invalid sql statement;
+=> FAIL \(.*\)
+migrate: ERROR: syntax error at or near "invalid" \(SQLSTATE 42601\)
+`)
+	if !want.MatchString(out) {
+		t.Errorf("output: want:\n%v\n\ngot:\n%s", want, out)
+	}
+}
+
 func TestMigrateCreate(t *testing.T) {
 	setup(t)
 	// Create a new migration.

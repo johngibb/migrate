@@ -13,6 +13,7 @@ func main() {
 	var (
 		conn    = flag.String("conn", "", "postgres connection string")
 		srcPath = flag.String("src", ".", "directory containing migration files")
+		quiet   = flag.Bool("quiet", false, "quiet output")
 	)
 	log.SetFlags(0)
 	flag.Usage = usage
@@ -44,7 +45,7 @@ func main() {
 	case "status":
 		must(migrate.Status(src, db))
 	case "up":
-		must(migrate.Up(src, db))
+		must(migrate.Up(src, db, *quiet))
 	default:
 		flag.Usage()
 		return
