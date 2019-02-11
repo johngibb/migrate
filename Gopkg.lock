@@ -2,20 +2,43 @@
 
 
 [[projects]]
+  branch = "master"
+  digest = "1:df265b7f54410945dad5cf5979d91461b9fa7ff9b397ab58d2d577002a8a0e24"
+  name = "github.com/google/subcommands"
+  packages = ["."]
+  pruneopts = ""
+  revision = "46f0354f63152e8801bb460d26f5b6c4c878efbb"
+
+[[projects]]
+  digest = "1:2de1791b9e43f26c696e36950e42676565e7da7499a870bc02213da4b59b1d14"
   name = "github.com/jackc/pgx"
-  packages = [".","chunkreader","internal/sanitize","pgio","pgproto3","pgtype"]
+  packages = [
+    ".",
+    "chunkreader",
+    "internal/sanitize",
+    "pgio",
+    "pgproto3",
+    "pgtype",
+  ]
+  pruneopts = ""
   revision = "da3231b0b66e2e74cdb779f1d46c5e958ba8be27"
   version = "v3.1.0"
 
 [[projects]]
+  digest = "1:7365acd48986e205ccb8652cc746f09c8b7876030d53710ea6ef7d0bd0dcd7ca"
   name = "github.com/pkg/errors"
   packages = ["."]
+  pruneopts = ""
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
   version = "v0.8.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ce4bb3d5ef4ead084d76446debee2068714eb62eda8588da04beecb8d7a7c649"
+  input-imports = [
+    "github.com/google/subcommands",
+    "github.com/jackc/pgx",
+    "github.com/pkg/errors",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
