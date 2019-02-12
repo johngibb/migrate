@@ -1,55 +1,27 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
+	"os"
 
-	"github.com/johngibb/migrate"
-	"github.com/johngibb/migrate/db"
-	"github.com/johngibb/migrate/source"
+	"github.com/google/subcommands"
 )
 
 func main() {
-	var (
-		conn    = flag.String("conn", "", "postgres connection string")
-		srcPath = flag.String("src", ".", "directory containing migration files")
-		quiet   = flag.Bool("quiet", false, "quiet output")
-	)
 	log.SetFlags(0)
-	flag.Usage = usage
+	subcommands.Register(&Status{}, "")
+	subcommands.Register(&Up{}, "")
+	subcommands.Register(&Create{}, "")
+	subcommands.Register(subcommands.HelpCommand(), "")
+
+	os.Args = translateLegacyArgs(os.Args)
+
 	flag.Parse()
-	args := flag.Args()
-
-	if len(args) == 0 {
-		flag.Usage()
-		return
-	}
-
-	src, err := source.New(*srcPath)
-	must(err)
-	db, err := db.Connect(*conn)
-	must(err)
-	defer db.Close()
-
-	// Dispatch command.
-	switch args[0] {
-	case "-h", "--help":
-		flag.Usage()
-		return
-	case "create":
-		if len(args) < 2 {
-			flag.Usage()
-			return
-		}
-		must(migrate.Create(src, args[1]))
-	case "status":
-		must(migrate.Status(src, db))
-	case "up":
-		must(migrate.Up(src, db, *quiet))
-	default:
-		flag.Usage()
-		return
-	}
+	os.Exit(int(
+		subcommands.Execute(context.Background()),
+	))
 }
 
 // must calls log.Fatal if the error is non-nil.
@@ -59,23 +31,54 @@ func must(err error) {
 	}
 }
 
-// usage prints usage information.
-func usage() {
-	log.Print(usagePrefix)
-	flag.PrintDefaults()
-	log.Print(usageCommands)
+// translateLegacyArgs translates legacy command-line arguments to the newer
+// format used by subcommands. Formerly, flags were specified before the
+// command.
+//
+// Example:
+// 	 before: [migrate -src ./migrations create add_table]
+// 	 after:  [migrate create -src ./migrations add_table]
+func translateLegacyArgs(args []string) []string {
+	if len(args) < 2 {
+		return args
+	}
+	var (
+		cmd       string
+		flags     []string
+		isFlag    = isOneOf("-conn", "--conn", "-src", "--src", "-quiet", "--quiet")
+		isCommand = isOneOf("create", "status", "up")
+	)
+	if !isFlag(args[1]) {
+		return args
+	}
+	for _, arg := range args[1:] {
+		if isCommand(arg) {
+			cmd = arg
+		} else {
+			flags = append(flags, arg)
+		}
+	}
+
+	// Special case: "create" no longer accepts a "conn" flag.
+	if cmd == "create" {
+		for i, s := range flags {
+			switch s {
+			case "-conn", "--conn":
+				flags = append(flags[0:i], flags[i+2:]...)
+				break
+			}
+		}
+	}
+	return append([]string{args[0], cmd}, flags...)
 }
 
-var (
-	usagePrefix = `Usage: migrate [options] command
-
-Options:
-`
-
-	usageCommands = `
-Commands:
-    create NAME    create new migration file
-    status         display the current status of the migrations
-    up             apply all pending migrations to the db
-`
-)
+func isOneOf(vals ...string) func(string) bool {
+	return func(s string) bool {
+		for _, v := range vals {
+			if s == v {
+				return true
+			}
+		}
+		return false
+	}
+}
