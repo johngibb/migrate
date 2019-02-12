@@ -29,19 +29,37 @@ This will install `migrate` to your $GOPATH/bin directory.
 
 ## Usage
 
+Create a migration:
+
 ```
-Usage: migrate [options] command
-
-Options:
-  -conn string
-        postgres connection string
+$ migrate create -src <folder> <migration name>:
+    Creates a new migration file.
   -src string
-        directory containing migration files (default ".")
+      directory containing migration files (default ".")
+```
 
-Commands:
-    create NAME    create new migration file
-    status         display the current status of the migrations
-    up             apply all pending migrations to the db
+View pending and applied migrations:
+
+```
+$ migrate status:
+    Display a list of pending and applied migrations.
+  -conn string
+      postgres connection string
+  -src string
+      directory containing migration files (default ".")
+```
+
+Apply pending migrations:
+
+```
+$ migrate up -src <migrations folder> -conn <connection string> [-quiet]:
+    Apply all pending migrations.
+  -conn string
+      postgres connection string
+  -quiet
+      only print errors
+  -src string
+      directory containing migration files (default ".")
 ```
 
 ## Migrations

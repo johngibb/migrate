@@ -32,7 +32,7 @@ func TestMigrateUp(t *testing.T) {
 	createMigration("2_add_orders_table.sql", `create table orders(id int);`)
 
 	// Run the migrations.
-	out := mustRun("migrate --src ./migrations --conn %s up", connectionString)
+	out := mustRun("migrate up --src ./migrations --conn %s", connectionString)
 
 	// Verify the output looks correct.
 	want := regexp.MustCompile(`Running 1_add_users_table:
@@ -59,7 +59,7 @@ func TestMigrateUpQuietNoError(t *testing.T) {
 	createMigration("1_add_users_table.sql", "create table users(id int);")
 
 	// Run the migration.
-	out := mustRun("migrate --src ./migrations --conn %s --quiet up", connectionString)
+	out := mustRun("migrate up --src ./migrations --conn %s --quiet", connectionString)
 
 	// Verify the output was quiet.
 	if out != "" {
@@ -73,7 +73,7 @@ func TestMigrateUpQuietError(t *testing.T) {
 	createMigration("1_add_users_table.sql", `invalid sql statement;`)
 
 	// Run the migrations.
-	out, err := run("migrate --src ./migrations --conn %s --quiet up", connectionString)
+	out, err := run("migrate up --src ./migrations --conn %s --quiet", connectionString)
 	if err == nil {
 		t.Fatal("error was nil")
 	}
@@ -92,7 +92,7 @@ migrate: ERROR: syntax error at or near "invalid" \(SQLSTATE 42601\)
 func TestMigrateCreate(t *testing.T) {
 	setup(t)
 	// Create a new migration.
-	mustRun("migrate --src ./migrations --conn %s create add_users_table", connectionString)
+	mustRun("migrate create --src ./migrations add_users_table")
 
 	// Confirm the new file exists.
 	files, err := filepath.Glob("./migrations/*add_users_table.sql")
@@ -109,7 +109,7 @@ func TestMigrateStatus(t *testing.T) {
 
 	// Run `migrate status`, ensuring the above migration is displayed
 	// as pending.
-	out := mustRun("migrate --src ./migrations --conn %s status", connectionString)
+	out := mustRun("migrate status --src ./migrations --conn %s", connectionString)
 	if want := "1_add_users_table pending"; !strings.Contains(out, want) {
 		t.Errorf("output missing: %q", want)
 	}
@@ -122,7 +122,7 @@ func TestMigrateStatusAndUp(t *testing.T) {
 	createMigration("2_add_users_table.sql", "create table orders(id int);")
 
 	// Confirm they are listed as pending.
-	out := mustRun("migrate --src ./migrations --conn %s status", connectionString)
+	out := mustRun("migrate status --src ./migrations --conn %s", connectionString)
 	if want := "1_add_users_table pending"; !strings.Contains(out, want) {
 		t.Errorf("output missing: %q", want)
 	}
@@ -131,10 +131,10 @@ func TestMigrateStatusAndUp(t *testing.T) {
 	}
 
 	// Apply them using "migrate up".
-	mustRun("migrate --src ./migrations --conn %s up", connectionString)
+	mustRun("migrate up --src ./migrations --conn %s", connectionString)
 
 	// Confirm they are listed as applied.
-	out = mustRun("migrate --src ./migrations --conn %s status", connectionString)
+	out = mustRun("migrate status --src ./migrations --conn %s", connectionString)
 	if want := "1_add_users_table applied"; !strings.Contains(out, want) {
 		t.Errorf("output missing: %q", want)
 	}
@@ -200,6 +200,13 @@ func TestLocking(t *testing.T) {
 	if !foundFailure {
 		t.Error("neither command failed")
 	}
+}
+
+func TestLegacyCommandLineArgs(t *testing.T) {
+	setup(t)
+	mustRun("migrate -src ./migrations -conn %s create add_table", connectionString)
+	mustRun("migrate -src ./migrations -conn %s status", connectionString)
+	mustRun("migrate -src ./migrations -conn %s up", connectionString)
 }
 
 // run runs the command, returning the output and an error.
