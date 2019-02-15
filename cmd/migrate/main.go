@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/google/subcommands"
 )
@@ -43,10 +44,8 @@ func translateLegacyArgs(args []string) []string {
 		return args
 	}
 	var (
-		cmd       string
-		flags     []string
-		isFlag    = isOneOf("-conn", "--conn", "-src", "--src", "-quiet", "--quiet")
-		isCommand = isOneOf("create", "status", "up")
+		cmd   string
+		flags []string
 	)
 	if !isFlag(args[1]) {
 		return args
@@ -62,8 +61,10 @@ func translateLegacyArgs(args []string) []string {
 	// Special case: "create" no longer accepts a "conn" flag.
 	if cmd == "create" {
 		for i, s := range flags {
-			switch s {
-			case "-conn", "--conn":
+			switch {
+			case strings.HasPrefix(s, "-conn="), strings.HasPrefix(s, "--conn="):
+				flags = append(flags[0:i], flags[i+1:]...)
+			case strings.HasPrefix(s, "-conn"), strings.HasPrefix(s, "--conn"):
 				flags = append(flags[0:i], flags[i+2:]...)
 				break
 			}
@@ -72,13 +73,14 @@ func translateLegacyArgs(args []string) []string {
 	return append([]string{args[0], cmd}, flags...)
 }
 
-func isOneOf(vals ...string) func(string) bool {
-	return func(s string) bool {
-		for _, v := range vals {
-			if s == v {
-				return true
-			}
-		}
-		return false
-	}
+func isFlag(s string) bool {
+	return strings.HasPrefix(s, "-conn") || strings.HasPrefix(s, "--conn") ||
+		strings.HasPrefix(s, "-src") || strings.HasPrefix(s, "--src") ||
+		strings.HasPrefix(s, "-quiet") || strings.HasPrefix(s, "--quiet")
+}
+
+func isCommand(s string) bool {
+	return s == "create" ||
+		s == "status" ||
+		s == "up"
 }

@@ -207,6 +207,10 @@ func TestLegacyCommandLineArgs(t *testing.T) {
 	mustRun("migrate -src ./migrations -conn %s create add_table", connectionString)
 	mustRun("migrate -src ./migrations -conn %s status", connectionString)
 	mustRun("migrate -src ./migrations -conn %s up", connectionString)
+
+	mustRun("migrate -src=./migrations -conn=%s create add_table2", connectionString)
+	mustRun("migrate -src=./migrations -conn=%s status", connectionString)
+	mustRun("migrate -src=./migrations -conn=%s up", connectionString)
 }
 
 // run runs the command, returning the output and an error.
