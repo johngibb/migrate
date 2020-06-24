@@ -21,23 +21,53 @@ func (m *Migration) ReadStatements() ([]string, error) {
 	return splitStatements(f), nil
 }
 
+const (
+	apostrophe = "'"
+	dollarSign = "$"
+	semicolon  = ";"
+)
+
 // splitStatements splits the given file into separate statements.
 func splitStatements(r io.Reader) []string {
-	var buf bytes.Buffer
-	scanner := bufio.NewScanner(r)
-	var result []string
+	var (
+		buf      bytes.Buffer
+		inBlock  bool
+		inString bool
+		result   []string
+		scanner  = bufio.NewScanner(r)
+	)
+
+	scanner.Split(bufio.ScanBytes)
+	last := ""
+
 	for scanner.Scan() {
-		l := scanner.Text()
-		_, _ = buf.WriteString(l + "\n")
-		if strings.HasSuffix(l, ";") {
+		curr := scanner.Text()
+		_, _ = buf.WriteString(curr)
+
+		switch last {
+		case apostrophe:
+			if curr != apostrophe {
+				inString = !inString
+			}
+		case dollarSign:
+			if curr == dollarSign && !inString {
+				inBlock = !inBlock
+			}
+		}
+
+		if curr == semicolon && !(inBlock || inString) {
 			result = append(result, buf.String())
 			buf.Reset()
 		}
+
+		last = curr
 	}
+
 	if buf.Len() > 0 {
 		if s := strings.TrimSpace(buf.String()); s != "" {
-			result = append(result, buf.String())
+			result = append(result, s)
 		}
 	}
+
 	return result
 }
