@@ -7,24 +7,6 @@ import (
 	"testing"
 )
 
-func TestStringParsing(t *testing.T) {
-	want := `create function update_trigger() returns trigger as $$
-begin
-  new.tsv :=
-    to_tsvector(coalesce(new.alpha, 'foo''s')) ||
-    to_tsvector(coalesce(new.bravo, '$$'));
-  return new;
-end
-$$ language plpgsql;`
-	got := splitStatements(strings.NewReader(want))
-	if len(got) != 1 {
-		t.Errorf("read failed: statement len got: \n%d\nwant: \n%d", len(got), 1)
-	}
-	if got[0] != want {
-		t.Errorf("read failed: got: \n%q\nwant: \n%q", got[0], want)
-	}
-}
-
 func TestSplitStatements(t *testing.T) {
 	tests := []struct {
 		src        string
@@ -64,10 +46,33 @@ func TestSplitStatements(t *testing.T) {
 			`insert into test select ';'`,
 			[]string{`insert into test select ';'`},
 		},
+		{
+			`create function update_trigger() returns trigger as $$
+begin
+  new.tsv :=
+    to_tsvector(coalesce(new.alpha, 'foo''s')) ||
+    to_tsvector(coalesce(new.bravo, '$$'));
+  return new;
+end
+$$ language plpgsql;`,
+			nil,
+		},
+		{
+			`select * from table where thing not in (';''', '');
+select * from table where thing not in ('', '''');`,
+			[]string{
+				`select * from table where thing not in (';''', '');`,
+				`select * from table where thing not in ('', '''');`,
+			},
+		},
 	}
 	for i, tt := range tests {
-		if got := trimAll(splitStatements(strings.NewReader(tt.src))); !reflect.DeepEqual(got, tt.statements) {
-			t.Errorf("read failed: %d, got: \n%s\nwant: \n%s", i, toJson(got), toJson(tt.statements))
+		want := tt.statements
+		if len(want) == 0 {
+			want = []string{tt.src}
+		}
+		if got := trimAll(splitStatements(strings.NewReader(tt.src))); !reflect.DeepEqual(got, want) {
+			t.Errorf("read failed: %d, got: \n%s\nwant: \n%s", i, toJSON(got), toJSON(tt.statements))
 		}
 	}
 }
@@ -80,7 +85,7 @@ func trimAll(ss []string) []string {
 	return result
 }
 
-func toJson(v interface{}) string {
+func toJSON(v interface{}) string {
 	b, err := json.Marshal(v)
 	if err != nil {
 		panic(err)

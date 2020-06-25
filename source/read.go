@@ -46,9 +46,7 @@ func splitStatements(r io.Reader) []string {
 
 		switch last {
 		case apostrophe:
-			if curr != apostrophe {
-				inString = !inString
-			}
+			inString = !inString
 		case dollarSign:
 			if curr == dollarSign && !inString {
 				inBlock = !inBlock
