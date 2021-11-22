@@ -1,17 +1,26 @@
 package migrate
 
 import (
+	"fmt"
 	"log"
-
-	"github.com/johngibb/migrate/source"
+	"os"
+	"path/filepath"
+	"time"
 )
 
 // Create generates an empty migration file.
-func Create(src *source.Source, name string) error {
-	path, err := src.Create(name)
+func Create(path, name string) error {
+	timestamp := time.Now().UTC().Format("20060102150405")
+	filename := fmt.Sprintf("%s_%s.sql", timestamp, name)
+	path = filepath.Join(path, filename)
+	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
+	if err := f.Close(); err != nil {
+		return err
+	}
 	log.Printf("Created %s\n", path)
+
 	return nil
 }
