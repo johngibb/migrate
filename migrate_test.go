@@ -254,7 +254,7 @@ func splitCMD(s string) []string {
 // clearMigrations recreates an empty migrations folder for testing.
 func clearMigrations() {
 	must(os.RemoveAll("./migrations"), "error deleting migrations directory")
-	must(os.MkdirAll("./migrations", os.ModeDir), "error creating migrations directory")
+	must(os.MkdirAll("./migrations", os.ModePerm), "error creating migrations directory")
 }
 
 // resetDB drops all tables in the database.

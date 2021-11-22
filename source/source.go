@@ -51,6 +51,8 @@ type Migration struct {
 	// Version is the numeric version of the migration, derived from the
 	// file name and used to sort the migrations.
 	Version int
+
+	fs fs.FS
 }
 
 // parseMigration parses a path into a Migration.
@@ -85,6 +87,7 @@ func (s *Source) FindMigrations() ([]*Migration, error) {
 		if err != nil {
 			return nil, err
 		}
+		m.fs = s.fs
 		result[i] = m
 	}
 	sort.Sort(ByVersion(result))
