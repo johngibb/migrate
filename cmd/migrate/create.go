@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/subcommands"
 	"github.com/johngibb/migrate"
-	"github.com/johngibb/migrate/source"
 )
 
 type Create struct {
@@ -33,8 +32,6 @@ func (cmd *Create) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{})
 		f.Usage()
 		return subcommands.ExitUsageError
 	}
-	src, err := source.New(cmd.srcPath)
-	must(err)
-	must(migrate.Create(src, f.Arg(0)))
+	must(migrate.Create(cmd.srcPath, f.Arg(0)))
 	return subcommands.ExitSuccess
 }

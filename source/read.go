@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -13,7 +12,7 @@ import (
 // ReadStatements reads the migration file and parses it into individual
 // statements.
 func (m *Migration) ReadStatements() ([]string, error) {
-	f, err := os.Open(m.Path)
+	f, err := m.fs.Open(m.Path)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not open file")
 	}

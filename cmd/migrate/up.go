@@ -31,7 +31,7 @@ func (cmd *Up) SetFlags(f *flag.FlagSet) {
 }
 
 func (cmd *Up) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	src, err := source.New(cmd.srcPath)
+	src, err := source.NewFromPath(cmd.srcPath)
 	must(err)
 	db, err := db.Connect(cmd.conn)
 	must(err)

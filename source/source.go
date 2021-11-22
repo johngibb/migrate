@@ -3,29 +3,41 @@
 package source
 
 import (
-	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 )
 
 // Source is handle to a directory containing migration source files.
 type Source struct {
-	path string
+	fs fs.FS
 }
 
 // New creates a new Source, or returns an error if the path does not
 // exist.
+// Deprecated: Use NewFromPath instead.
 func New(path string) (*Source, error) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	return NewFromPath(path)
+}
+
+// NewFromPath creates a new Source from the provided path, or returns
+// an error if the path does not exist.
+func NewFromPath(path string) (*Source, error) {
+	sourceFS := os.DirFS(path)
+	if _, err := sourceFS.(fs.StatFS).Stat(path); os.IsNotExist(err) {
 		return nil, errors.Errorf("directory does not exist: %s", path)
 	}
-	return &Source{path: path}, nil
+	return NewFromFS(sourceFS), nil
+}
+
+// NewFromFS creates a new Source using the provided fs.FS.
+func NewFromFS(sourceFS fs.FS) *Source {
+	return &Source{fs: sourceFS}
 }
 
 // Migration is a handle to a migration source file.
@@ -39,6 +51,8 @@ type Migration struct {
 	// Version is the numeric version of the migration, derived from the
 	// file name and used to sort the migrations.
 	Version int
+
+	fs fs.FS
 }
 
 // parseMigration parses a path into a Migration.
@@ -63,7 +77,7 @@ func parseMigration(path string) (*Migration, error) {
 
 // FindMigrations finds all migrations under the source path.
 func (s *Source) FindMigrations() ([]*Migration, error) {
-	paths, err := filepath.Glob(filepath.Join(s.path, "*.sql"))
+	paths, err := fs.Glob(s.fs, "*.sql")
 	if err != nil {
 		return nil, errors.Wrap(err, "could not glob path")
 	}
@@ -73,25 +87,11 @@ func (s *Source) FindMigrations() ([]*Migration, error) {
 		if err != nil {
 			return nil, err
 		}
+		m.fs = s.fs
 		result[i] = m
 	}
 	sort.Sort(ByVersion(result))
 	return result, nil
-}
-
-// Create generates a new migration source file under the source path.
-func (s *Source) Create(name string) (string, error) {
-	timestamp := time.Now().UTC().Format("20060102150405")
-	filename := fmt.Sprintf("%s_%s.sql", timestamp, name)
-	path := filepath.Join(s.path, filename)
-	f, err := os.Create(path)
-	if err != nil {
-		return "", err
-	}
-	if err := f.Close(); err != nil {
-		return "", err
-	}
-	return path, nil
 }
 
 // ByVersion sorts migrations by their version numbers.
