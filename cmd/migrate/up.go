@@ -30,12 +30,12 @@ func (cmd *Up) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&cmd.quiet, "quiet", false, "only print errors")
 }
 
-func (cmd *Up) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (cmd *Up) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	src, err := source.New(cmd.srcPath)
 	must(err)
-	db, err := db.Connect(cmd.conn)
+	db, err := db.Connect(ctx, cmd.conn)
 	must(err)
-	defer db.Close()
-	must(migrate.Up(src, db, cmd.quiet))
+	defer db.Close(ctx)
+	must(migrate.Up(ctx, src, db, cmd.quiet))
 	return subcommands.ExitSuccess
 }

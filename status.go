@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"context"
 	"log"
 	"strconv"
 
@@ -9,12 +10,12 @@ import (
 )
 
 // Status displays every migration, and whether it's been applied yet.
-func Status(src *source.Source, db *db.Client) error {
+func Status(ctx context.Context, src *source.Source, db *db.Client) error {
 	migrations, err := src.FindMigrations()
 	if err != nil {
 		return err
 	}
-	applied, err := db.GetMigrations()
+	applied, err := db.GetMigrations(ctx)
 	if err != nil {
 		return err
 	}

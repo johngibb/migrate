@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -12,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v4"
 )
 
 var (
@@ -148,7 +149,7 @@ func TestDSN(t *testing.T) {
 	createMigration("1_add_users_table.sql", "create table users(id int);")
 
 	// Parse the connection URI.
-	cfg, err := pgx.ParseURI(connectionString)
+	cfg, err := pgx.ParseConfig(connectionString)
 	must(err, "parsing pg uri")
 
 	// Convert the URI to a DSN.
@@ -259,12 +260,13 @@ func clearMigrations() {
 
 // resetDB drops all tables in the database.
 func resetDB() {
-	cfg, err := pgx.ParseURI(connectionString)
+	ctx := context.Background()
+	cfg, err := pgx.ParseConfig(connectionString)
 	must(err, "error parsing connection uri")
-	conn, err := pgx.Connect(cfg)
+	conn, err := pgx.ConnectConfig(ctx, cfg)
 	must(err, "error connecting to database")
-	defer conn.Close()
-	rows, err := conn.Query(`select table_name from information_schema.tables where table_schema = current_schema();`)
+	defer conn.Close(ctx)
+	rows, err := conn.Query(ctx, `select table_name from information_schema.tables where table_schema = current_schema();`)
 	must(err, "error fetching tables")
 	var tables []string
 	for rows.Next() {
@@ -273,7 +275,7 @@ func resetDB() {
 		tables = append(tables, name)
 	}
 	for _, table := range tables {
-		_, err := conn.Exec("drop table " + table)
+		_, err := conn.Exec(ctx, "drop table "+table)
 		must(err, "error dropping table")
 	}
 }
@@ -292,6 +294,7 @@ func createMigration(name, source string) {
 // - clears the migrations directory
 // - resets the database
 func setup(t *testing.T) {
+	ctx := context.Background()
 	if os.Getenv("RUN_MIGRATIONS") != "YES" {
 		t.SkipNow()
 	}
@@ -305,12 +308,12 @@ func setup(t *testing.T) {
 	// container to finish booting, but not for the actual service to be
 	// ready to accept connections.
 	waitOnce.Do(func() {
-		cfg, err := pgx.ParseURI(uri)
+		cfg, err := pgx.ParseConfig(uri)
 		must(err, "error parsing uri")
 		for i := 0; i < 20; i++ {
-			conn, connErr := pgx.Connect(cfg)
+			conn, connErr := pgx.ConnectConfig(ctx, cfg)
 			if connErr == nil {
-				conn.Close()
+				conn.Close(ctx)
 				return
 			}
 			err = connErr

@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"context"
 	"log"
 	"os"
 	"strings"
@@ -14,7 +15,7 @@ import (
 var DefaultLogger = log.New(os.Stderr, "", 0)
 
 // Up applies all pending migrations from src to the db.
-func Up(src *source.Source, db *db.Client, quiet bool) (err error) {
+func Up(ctx context.Context, src *source.Source, db *db.Client, quiet bool) (err error) {
 	logger := DefaultLogger
 
 	// If we're running in quiet mode, buffer all log messages, and only print
@@ -35,7 +36,7 @@ func Up(src *source.Source, db *db.Client, quiet bool) (err error) {
 	}
 
 	// Acquire an exclusive lock.
-	locked, err := db.TryLock()
+	locked, err := db.TryLock(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error acquiring lock")
 	}
@@ -45,13 +46,13 @@ func Up(src *source.Source, db *db.Client, quiet bool) (err error) {
 
 	// Release the lock after running all migrations.
 	defer func() {
-		_, e := db.Unlock()
+		_, e := db.Unlock(ctx)
 		if err != nil && e != nil {
 			err = e
 		}
 	}()
 
-	applied, err := db.GetMigrations()
+	applied, err := db.GetMigrations(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error fetching migrations")
 	}
@@ -85,7 +86,7 @@ func Up(src *source.Source, db *db.Client, quiet bool) (err error) {
 		for _, stmt := range stmts {
 			logger.Println(prefixAll("> ", stmt))
 			start := time.Now()
-			err := db.Exec(stmt)
+			err := db.Exec(ctx, stmt)
 			elapsed := time.Since(start)
 			if err != nil {
 				logger.Printf("=> FAIL (%s)", elapsed)
@@ -93,7 +94,7 @@ func Up(src *source.Source, db *db.Client, quiet bool) (err error) {
 			}
 			logger.Printf("=> OK (%v)", elapsed)
 		}
-		if err := db.LogCompletedMigration(m.Name); err != nil {
+		if err := db.LogCompletedMigration(ctx, m.Name); err != nil {
 			return errors.Wrap(err, "error completing migration")
 		}
 	}
