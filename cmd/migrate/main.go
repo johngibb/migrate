@@ -37,8 +37,9 @@ func must(err error) {
 // command.
 //
 // Example:
-// 	 before: [migrate -src ./migrations create add_table]
-// 	 after:  [migrate create -src ./migrations add_table]
+//
+//	before: [migrate -src ./migrations create add_table]
+//	after:  [migrate create -src ./migrations add_table]
 func translateLegacyArgs(args []string) []string {
 	if len(args) < 2 {
 		return args
@@ -66,7 +67,6 @@ func translateLegacyArgs(args []string) []string {
 				flags = append(flags[0:i], flags[i+1:]...)
 			case strings.HasPrefix(s, "-conn"), strings.HasPrefix(s, "--conn"):
 				flags = append(flags[0:i], flags[i+2:]...)
-				break
 			}
 		}
 	}

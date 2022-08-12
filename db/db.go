@@ -3,7 +3,9 @@
 package db
 
 import (
-	"github.com/jackc/pgx"
+	"context"
+
+	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 )
 
@@ -21,12 +23,12 @@ type Client struct {
 }
 
 // Connect connects to the Postgres database at the given uri.
-func Connect(uri string) (*Client, error) {
-	cfg, err := pgx.ParseConnectionString(uri)
+func Connect(ctx context.Context, uri string) (*Client, error) {
+	cfg, err := pgx.ParseConfig(uri)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not parse uri: %s", uri)
 	}
-	conn, err := pgx.Connect(cfg)
+	conn, err := pgx.ConnectConfig(ctx, cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to database")
 	}
@@ -38,16 +40,16 @@ func Connect(uri string) (*Client, error) {
 }
 
 // Close closes the underlying database connection.
-func (c *Client) Close() error {
-	return c.conn.Close()
+func (c *Client) Close(ctx context.Context) error {
+	return c.conn.Close(ctx)
 }
 
 // ensureMigrationsTable ensures that the migrations table exists.
-func (c *Client) ensureMigrationsTable() error {
+func (c *Client) ensureMigrationsTable(ctx context.Context) error {
 	if c.ensured { // only need to run the full check once
 		return nil
 	}
-	_, err := c.conn.Exec(`
+	_, err := c.conn.Exec(ctx, `
         create table if not exists migrations (
             name text
         );
@@ -60,26 +62,26 @@ func (c *Client) ensureMigrationsTable() error {
 
 // ApplyMigration executes the given statements against the database,
 // and then records that the migration has been applied.
-func (c *Client) Exec(sql string) error {
-	if err := c.ensureMigrationsTable(); err != nil {
+func (c *Client) Exec(ctx context.Context, sql string) error {
+	if err := c.ensureMigrationsTable(ctx); err != nil {
 		return err
 	}
-	_, err := c.conn.Exec(sql)
+	_, err := c.conn.Exec(ctx, sql)
 	return err
 }
 
-func (c *Client) LogCompletedMigration(name string) error {
-	_, err := c.conn.Exec(`insert into migrations values ($1);`, name)
+func (c *Client) LogCompletedMigration(ctx context.Context, name string) error {
+	_, err := c.conn.Exec(ctx, `insert into migrations values ($1);`, name)
 	return err
 }
 
 // GetMigrations returns all migrations that have been applied to the
 // database.
-func (c *Client) GetMigrations() ([]*Migration, error) {
-	if err := c.ensureMigrationsTable(); err != nil {
+func (c *Client) GetMigrations(ctx context.Context) ([]*Migration, error) {
+	if err := c.ensureMigrationsTable(ctx); err != nil {
 		return nil, err
 	}
-	rows, err := c.conn.Query(`select name from migrations;`)
+	rows, err := c.conn.Query(ctx, `select name from migrations;`)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not query migrations")
 	}
