@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -12,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v4"
 )
 
 var (
@@ -21,15 +22,16 @@ var (
 )
 
 func TestMigrateUp(t *testing.T) {
-	setup(t)
+	ctx := context.Background()
+	setup(ctx, t)
 	// Create two migrations./
-	createMigration("1_add_users_table.sql", `
+	createMigration(ctx, "1_add_users_table.sql", `
 		begin;
 		create table users(id int);
 		commit;
 		create index concurrently on users(id);
 	`)
-	createMigration("2_add_orders_table.sql", `create table orders(id int);`)
+	createMigration(ctx, "2_add_orders_table.sql", `create table orders(id int);`)
 
 	// Run the migrations.
 	out := mustRun("migrate up --src ./migrations --conn %s", connectionString)
@@ -54,9 +56,10 @@ Running 2_add_orders_table:
 }
 
 func TestMigrateUpQuietNoError(t *testing.T) {
-	setup(t)
+	ctx := context.Background()
+	setup(ctx, t)
 	// Create a migration.
-	createMigration("1_add_users_table.sql", "create table users(id int);")
+	createMigration(ctx, "1_add_users_table.sql", "create table users(id int);")
 
 	// Run the migration.
 	out := mustRun("migrate up --src ./migrations --conn %s --quiet", connectionString)
@@ -68,9 +71,10 @@ func TestMigrateUpQuietNoError(t *testing.T) {
 }
 
 func TestMigrateUpQuietError(t *testing.T) {
-	setup(t)
+	ctx := context.Background()
+	setup(ctx, t)
 	// Create a broken migration.
-	createMigration("1_add_users_table.sql", `invalid sql statement;`)
+	createMigration(ctx, "1_add_users_table.sql", `invalid sql statement;`)
 
 	// Run the migrations.
 	out, err := run("migrate up --src ./migrations --conn %s --quiet", connectionString)
@@ -90,7 +94,8 @@ migrate: ERROR: syntax error at or near "invalid" \(SQLSTATE 42601\)
 }
 
 func TestMigrateCreate(t *testing.T) {
-	setup(t)
+	ctx := context.Background()
+	setup(ctx, t)
 	// Create a new migration.
 	mustRun("migrate create --src ./migrations add_users_table")
 
@@ -103,9 +108,10 @@ func TestMigrateCreate(t *testing.T) {
 }
 
 func TestMigrateStatus(t *testing.T) {
-	setup(t)
+	ctx := context.Background()
+	setup(ctx, t)
 	// Create a new migration.
-	createMigration("1_add_users_table.sql", `create table users(id int);`)
+	createMigration(ctx, "1_add_users_table.sql", `create table users(id int);`)
 
 	// Run `migrate status`, ensuring the above migration is displayed
 	// as pending.
@@ -116,10 +122,11 @@ func TestMigrateStatus(t *testing.T) {
 }
 
 func TestMigrateStatusAndUp(t *testing.T) {
-	setup(t)
+	ctx := context.Background()
+	setup(ctx, t)
 	// Create two migrations.
-	createMigration("1_add_users_table.sql", "create table users(id int);")
-	createMigration("2_add_users_table.sql", "create table orders(id int);")
+	createMigration(ctx, "1_add_users_table.sql", "create table users(id int);")
+	createMigration(ctx, "2_add_users_table.sql", "create table orders(id int);")
 
 	// Confirm they are listed as pending.
 	out := mustRun("migrate status --src ./migrations --conn %s", connectionString)
@@ -144,11 +151,12 @@ func TestMigrateStatusAndUp(t *testing.T) {
 }
 
 func TestDSN(t *testing.T) {
-	setup(t)
-	createMigration("1_add_users_table.sql", "create table users(id int);")
+	ctx := context.Background()
+	setup(ctx, t)
+	createMigration(ctx, "1_add_users_table.sql", "create table users(id int);")
 
 	// Parse the connection URI.
-	cfg, err := pgx.ParseURI(connectionString)
+	cfg, err := pgx.ParseConfig(connectionString)
 	must(err, "parsing pg uri")
 
 	// Convert the URI to a DSN.
@@ -169,8 +177,9 @@ func TestDSN(t *testing.T) {
 }
 
 func TestLocking(t *testing.T) {
-	setup(t)
-	createMigration("1_add_users_table.sql", "select pg_sleep(1);")
+	ctx := context.Background()
+	setup(ctx, t)
+	createMigration(ctx, "1_add_users_table.sql", "select pg_sleep(1);")
 
 	// Run the migration twice in parallel.
 	out := make([]string, 2)
@@ -203,7 +212,8 @@ func TestLocking(t *testing.T) {
 }
 
 func TestLegacyCommandLineArgs(t *testing.T) {
-	setup(t)
+	ctx := context.Background()
+	setup(ctx, t)
 	mustRun("migrate -src ./migrations -conn %s create add_table", connectionString)
 	mustRun("migrate -src ./migrations -conn %s status", connectionString)
 	mustRun("migrate -src ./migrations -conn %s up", connectionString)
@@ -240,8 +250,8 @@ func must(err error, msg string) {
 // single quotes.
 //
 // For example: "migrate 'user=migrate password=migrate'"
-//   => ["migrate", "user=migrate password=migrate"]
 //
+//	=> ["migrate", "user=migrate password=migrate"]
 func splitCMD(s string) []string {
 	r := regexp.MustCompile("'.+'|\".+\"|\\S+")
 	result := r.FindAllString(s, -1)
@@ -258,13 +268,13 @@ func clearMigrations() {
 }
 
 // resetDB drops all tables in the database.
-func resetDB() {
-	cfg, err := pgx.ParseURI(connectionString)
+func resetDB(ctx context.Context) {
+	cfg, err := pgx.ParseConfig(connectionString)
 	must(err, "error parsing connection uri")
-	conn, err := pgx.Connect(cfg)
+	conn, err := pgx.ConnectConfig(ctx, cfg)
 	must(err, "error connecting to database")
-	defer conn.Close()
-	rows, err := conn.Query(`select table_name from information_schema.tables where table_schema = current_schema();`)
+	defer conn.Close(ctx)
+	rows, err := conn.Query(ctx, `select table_name from information_schema.tables where table_schema = current_schema();`)
 	must(err, "error fetching tables")
 	var tables []string
 	for rows.Next() {
@@ -273,14 +283,13 @@ func resetDB() {
 		tables = append(tables, name)
 	}
 	for _, table := range tables {
-		_, err := conn.Exec("drop table " + table)
+		_, err := conn.Exec(ctx, "drop table "+table)
 		must(err, "error dropping table")
 	}
 }
 
-// createMigration creates a new migration with the given name in the
-// migrations folder.
-func createMigration(name, source string) {
+// createMigration creates a new migration with the given name in the "migrations" folder.
+func createMigration(ctx context.Context, name, source string) {
 	f, err := os.Create("./migrations/" + name)
 	must(err, "error writing migration")
 	defer f.Close()
@@ -291,7 +300,7 @@ func createMigration(name, source string) {
 // - waits for the db to accept connections
 // - clears the migrations directory
 // - resets the database
-func setup(t *testing.T) {
+func setup(ctx context.Context, t *testing.T) {
 	if os.Getenv("RUN_MIGRATIONS") != "YES" {
 		t.SkipNow()
 	}
@@ -305,12 +314,12 @@ func setup(t *testing.T) {
 	// container to finish booting, but not for the actual service to be
 	// ready to accept connections.
 	waitOnce.Do(func() {
-		cfg, err := pgx.ParseURI(uri)
+		cfg, err := pgx.ParseConfig(uri)
 		must(err, "error parsing uri")
 		for i := 0; i < 20; i++ {
-			conn, connErr := pgx.Connect(cfg)
+			conn, connErr := pgx.ConnectConfig(ctx, cfg)
 			if connErr == nil {
-				conn.Close()
+				conn.Close(ctx)
 				return
 			}
 			err = connErr
@@ -320,5 +329,5 @@ func setup(t *testing.T) {
 	})
 	connectionString = uri
 	clearMigrations()
-	resetDB()
+	resetDB(ctx)
 }

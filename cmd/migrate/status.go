@@ -5,6 +5,7 @@ import (
 	"flag"
 
 	"github.com/google/subcommands"
+
 	"github.com/johngibb/migrate"
 	"github.com/johngibb/migrate/db"
 	"github.com/johngibb/migrate/source"
@@ -28,12 +29,12 @@ func (cmd *Status) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&cmd.srcPath, "src", ".", "directory containing migration files")
 }
 
-func (cmd *Status) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (cmd *Status) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	src, err := source.New(cmd.srcPath)
 	must(err)
-	db, err := db.Connect(cmd.conn)
+	db, err := db.Connect(ctx, cmd.conn)
 	must(err)
-	defer db.Close()
-	must(migrate.Status(src, db))
+	defer db.Close(ctx)
+	must(migrate.Status(ctx, src, db))
 	return subcommands.ExitSuccess
 }
