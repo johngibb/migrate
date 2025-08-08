@@ -8,7 +8,7 @@ Migrate is an exceedingly simple Postgres database migration tool.
 The simplicity is manifested in the following principles:
 
 * There are no "down" migrations. Because migrations necessarily mutate
-  state on a live server, [you can't have a safe rollback button](https://blog.skyliner.io/you-cant-have-a-rollback-button-83e914f420d9).
+  state on a live server, [you can't have a safe rollback button](https://mcfunley.com/page/3/).
 * Migrations are *not* automatically executed within a transaction.
   Transactions are expensive, often unnecessary, and prevent certain
   operations (e.g. `create index concurrently`). If the migration
