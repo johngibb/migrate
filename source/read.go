@@ -30,11 +30,13 @@ const (
 // splitStatements splits the given file into separate statements.
 func splitStatements(r io.Reader) []string {
 	var (
-		buf      bytes.Buffer
-		inBlock  bool
-		inString bool
-		result   []string
-		scanner  = bufio.NewScanner(r)
+		buf            bytes.Buffer
+		inDollarBlock  bool
+		inString       bool
+		inLineComment  bool
+		inBlockComment bool
+		result         []string
+		scanner        = bufio.NewScanner(r)
 	)
 
 	scanner.Split(bufio.ScanBytes)
@@ -44,16 +46,45 @@ func splitStatements(r io.Reader) []string {
 		curr := scanner.Text()
 		_, _ = buf.WriteString(curr)
 
+		if inLineComment {
+			if curr == "\n" {
+				inLineComment = false
+			}
+			last = curr
+			continue
+		}
+
+		if inBlockComment {
+			if last == "*" && curr == "/" {
+				inBlockComment = false
+			}
+			last = curr
+			continue
+		}
+
+		if !inString && !inDollarBlock {
+			if last == "-" && curr == "-" {
+				inLineComment = true
+				last = curr
+				continue
+			}
+			if last == "/" && curr == "*" {
+				inBlockComment = true
+				last = curr
+				continue
+			}
+		}
+
 		switch last {
 		case apostrophe:
 			inString = !inString
 		case dollarSign:
 			if curr == dollarSign && !inString {
-				inBlock = !inBlock
+				inDollarBlock = !inDollarBlock
 			}
 		}
 
-		if curr == semicolon && !(inBlock || inString) {
+		if curr == semicolon && !(inDollarBlock || inString || inLineComment || inBlockComment) {
 			result = append(result, buf.String())
 			buf.Reset()
 		}

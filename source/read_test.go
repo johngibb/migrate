@@ -65,6 +65,23 @@ select * from table where thing not in ('', '''');`,
 				`select * from table where thing not in ('', '''');`,
 			},
 		},
+		{
+			`create table users(id int); -- this semicolon ; is in a comment
+create table posts(id int);`,
+			[]string{
+				`create table users(id int);`,
+				`-- this semicolon ; is in a comment
+create table posts(id int);`,
+			},
+		},
+		{
+			`/* this semicolon ; is in a comment */
+create table posts(id int);`,
+			[]string{
+				`/* this semicolon ; is in a comment */
+create table posts(id int);`,
+			},
+		},
 	}
 	for i, tt := range tests {
 		want := tt.statements
